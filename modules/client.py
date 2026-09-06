@@ -52,10 +52,12 @@ class SendMessage(Client):
                         text=f"There is something wrong with {chat}. There is no chat_type?\nSkipping it."
                     )
                     continue
+                chat_id: str | int | None = current_chat_type["chat_id"]
+                message_tread_id: int | str | None = current_chat_type["thread_id"]
                 try:
                     await self.send_message(
-                        chat_id=current_chat_type["chat_id"],
-                        message_thread_id=int(current_chat_type["thread_id"]),
+                        chat_id=chat_id if chat_id else "",
+                        message_thread_id=int(message_tread_id) if message_tread_id else None,
                         text=message
                     )
                     report.append(f"{datetime.now().strftime(format="%d.%m.%Y::%H.%M.%S")} – Message sent to {chat}\n")

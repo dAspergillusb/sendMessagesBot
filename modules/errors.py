@@ -29,7 +29,7 @@ def check_main_errors() -> tuple[str, int, int, str, list[int | str | list[str |
         for item in getenv("WHO_SEND", "").split(",")
     ]
     time_to_wait: int = int(getenv("TIME_TO_WAIT", 30))
-    time_to_wait_between_send: int = int(getenv("TIME_TO_WAIT_BETWEEN_SEND", 1800))
+    time_to_wait_between_send: int = int(getenv("TIME_TO_WAIT_BETWEEN_SEND", 86400))
 
     mistakes: dict[bool, str] = {
         not telegram_bot_token: "There is no TELEGRAM_BOT_TOKEN option in .env-file!",
