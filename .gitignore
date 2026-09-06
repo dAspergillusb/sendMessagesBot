@@ -1,0 +1,6 @@
+.env
+.venv
+.idea
+logs
+main_old_bot.py
+my_account.session

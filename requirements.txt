@@ -1,0 +1,8 @@
+pyTelegramBotAPI
+aiohttp
+coloredlogs
+psutil
+dotenv
+pyrofork
+tgcrypto
+aiofiles
