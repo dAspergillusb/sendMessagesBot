@@ -6,3 +6,6 @@ dotenv
 pyrofork
 tgcrypto
 aiofiles
+sqlalchemy
+aiosqlite
+greenlet
