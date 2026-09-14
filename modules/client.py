@@ -1,3 +1,4 @@
+from random import randint
 from asyncio import sleep
 from pyrogram import Client
 from pyrogram.errors import (
@@ -25,15 +26,19 @@ class SendMessage(Client):
             api_id=api_id,
             api_hash=api_hash
         )
-        self.started_work: bool = False
+        self.started_work_error: bool = False
 
-    async def check_me(self):
-        return self.started_work
+    async def fast_check(self) -> bool:
+        return self.is_connected
 
-    async def main_sending(self, message: str, chats: list[str | int | list[int]]) -> None:
-        self.started_work = not self.started_work
+    async def deep_check(self) -> bool:
+        check_connection: bool = True if await self.get_me() else False
+        return all((check_connection, self.started_work_error))
+
+    async def main_sending(self, message: str, chats: list[str | int | list[int | str]]) -> None:
+        self.started_work_error = self.started_work_error if self.started_work_error else not self.started_work_error
         async with self:
-            report: list[str] = ["----------\n", "UserBot:\n", "Start messaging...\n"]
+            report: list[str] = ["##########\n", "UserBot:\n", "Start messaging...\n"]
             problems_count: int = 0
 
             for chat in chats:
@@ -61,7 +66,7 @@ class SendMessage(Client):
                         text=message
                     )
                     report.append(f"{datetime.now().strftime(format="%d.%m.%Y::%H.%M.%S")} – Message sent to {chat}\n")
-                    await sleep(env_settings.TIME_TO_WAIT)
+                    await sleep(randint(*env_settings.TIME_TO_WAIT))
                 except FloodWait as flood:
                     problems_count += 1
                     await sleep(flood.value)
@@ -76,13 +81,13 @@ class SendMessage(Client):
                         text=message
                     )
                     report.append(f"Message sent to {chat}\n")
-                    await sleep(env_settings.TIME_TO_WAIT)
+                    await sleep(randint(*env_settings.TIME_TO_WAIT))
                 except PeerFlood as peer:
                     await self.send_message(
                         chat_id="me",
                         text=f"UserBot: I think I get the ban for flood. It is very bad thing... See the errors_logs."
                     )
-                    self.started_work = not self.started_work
+                    self.started_work_error = not self.started_work_error
                     raise ErrorOccurred(
                         message=f"There is very bad problem occurred while sending messages!\nError message is: {peer.MESSAGE}"
                     )
@@ -92,14 +97,14 @@ class SendMessage(Client):
                         chat_id="me",
                         text=f"UserBot: The id or name of chat {chat} is invalid! Check your .env-file.\nError message: {peer.MESSAGE}"
                     )
-                    await sleep(env_settings.TIME_TO_WAIT)
+                    await sleep(randint(*env_settings.TIME_TO_WAIT))
                 except ChatWriteForbidden as write_forbidden:
                     problems_count += 1
                     await self.send_message(
                         chat_id="me",
                         text=f"UserBot: There is error occurred with sending the message to chat {chat}\nI think you need to check the chat permissions to you.\nError message: {write_forbidden.MESSAGE}"
                     )
-                    await sleep(env_settings.TIME_TO_WAIT)
+                    await sleep(randint(*env_settings.TIME_TO_WAIT))
                 except UserIsBlocked as blocked_user:
                     problems_count += 1
                     await self.send_message(
@@ -107,13 +112,13 @@ class SendMessage(Client):
                         text=f"UserBot: I tried to write the message to {chat}, but he has blocked me (e.g. your account).\nI think i need to remove this chat from chat list.\nError message: {blocked_user.MESSAGE}"
                     )
                     chats.remove(chat)
-                    await sleep(env_settings.TIME_TO_WAIT)
+                    await sleep(randint(*env_settings.TIME_TO_WAIT))
                 except MessageEmpty as empty_message:
                     await self.send_message(
                         chat_id="me",
                         text=f"UserBot: Hey, I don't want to send empty messages.\nCheck your message-file.\nError message: {empty_message.MESSAGE}"
                     )
-                    self.started_work = not self.started_work
+                    self.started_work_error = not self.started_work_error
                     raise ErrorOccurred(
                         message=empty_message.MESSAGE
                     )
@@ -122,30 +127,30 @@ class SendMessage(Client):
                         chat_id="me",
                         text=f"UserBot: The message that I've tried to send is very long. Your need to make it some shorter (delete {len(message) - 4096} chars).\nError message: {message_too_long.MESSAGE}" #TODO
                     )
-                    self.started_work = not self.started_work
+                    self.started_work_error = not self.started_work_error
                     raise ErrorOccurred(
                         message=message_too_long.MESSAGE
                     )
                 except AuthKeyInvalid as auth_key:
-                    self.started_work = not self.started_work
+                    self.started_work_error = not self.started_work_error
                     raise ErrorOccurred(
                         message=auth_key.MESSAGE
                     )
                 except SessionExpired as session_expired:
-                    self.started_work = not self.started_work
+                    self.started_work_error = not self.started_work_error
                     raise ErrorOccurred(
                         message=session_expired.MESSAGE
                     )
                 except RPCError as err:
-                    self.started_work = not self.started_work
+                    self.started_work_error = not self.started_work_error
                     raise ErrorOccurred(
                         message=err.MESSAGE
                     )
             else:
                 report.extend(
                     [
-                        "All messages have been sent successfully.",
-                        "----------\n"
+                        "All messages have been sent successfully.\n",
+                        "##########\n"
                     ]
                 )
                 await self.send_message(
