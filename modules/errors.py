@@ -28,7 +28,7 @@ def check_main_errors() -> tuple[str, int, int, str, list[int | str | list[str |
         else item
         for item in getenv("WHO_SEND", "").split(",")
     ]
-    time_to_wait: int = int(getenv("TIME_TO_WAIT", 30))
+    time_to_wait: list[int] = list(map(int, getenv("TIME_TO_WAIT", "90,180").split(",")))
     time_to_wait_between_send: int = int(getenv("TIME_TO_WAIT_BETWEEN_SEND", 86400))
 
     mistakes: dict[bool, str] = {
