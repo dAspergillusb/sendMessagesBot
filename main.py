@@ -3,9 +3,11 @@ from asyncio import (
     get_event_loop,
     set_event_loop,
     new_event_loop,
-    gather, CancelledError
+    gather,
+    shield,
+    CancelledError
 )
-from modules import Logger
+from modules import Logger, MessagesDB, Messages
 
 logger: Logger = Logger(
     to_file=True,
@@ -25,22 +27,26 @@ from modules import (
     user_bot,
     ErrorOccurred,
 )
-from itertools import count
 
 
-MAXIMUM_LENGTH: int = 4096 # Maximum message length fo telegram
+MAXIMUM_LENGTH: int = 4096 # Maximum message length for telegram
 
 
 async def run_user_bot() -> None:
     print("Running user bot...")
-    counter: count[int] = count(start=1)
     try:
         while True:
-            await user_bot.main_sending(
-                message=f"The messages group {next(counter)} was sent.",
-                chats=env_settings.WHO_SEND
-            )
-            await sleep(env_settings.TIME_TO_WAIT_BETWEEN_SEND)
+            messages: list[Messages] = await MessagesDB().get_messages(tg_id=env_settings.MY_PERSONAL_ID)
+            if not messages:
+                await sleep(240)
+            else:
+                for message_data in messages:
+                    await user_bot.main_sending(
+                        message=message_data.message,
+                        chats=message_data.get_chats_list()
+                    )
+                    await sleep(240) # Sleep 4 minutes between message group
+                await sleep(env_settings.TIME_TO_WAIT_BETWEEN_SEND)
     except ErrorOccurred as error:
         alert: str = (
             "There is a problem with your bot!\n"
@@ -74,15 +80,46 @@ async def start_async_bot() -> None:
 
 
 async def main() -> None:
+    await MessagesDB().init_db()
+    await gather(
+        run_user_bot(),
+        start_async_bot()
+    )
+
+
+async def stop_all() -> None:
+    if hasattr(user_bot, "is_connected") and user_bot.is_connected:
+        try:
+            print("Stopping UserBot...")
+            await user_bot.stop(block=False)
+            print("UserBot has stopped!")
+        except Exception as e:
+            print(e)
+
+
+    print("Stopping Telegram bot...")
     try:
-        await gather(
-            run_user_bot(),
-            start_async_bot()
-        )
-    except KeyboardInterrupt as e:
+        await shield(async_bot.close_session())
+    except Exception as e:
         print(e)
+    print("Telegram bot has stopped!")
+
+    print("Stopping Logger...")
+    logger.stop()
+    print("Logger has stopped!")
 
 
 if __name__ == '__main__':
     current_loop = get_event_loop()
-    current_loop.run_until_complete(main())
+    try:
+        current_loop.run_until_complete(main())
+    except (KeyboardInterrupt, CancelledError):
+        print("I checked cancel signal. Stopping system safety...")
+
+        current_loop.run_until_complete(stop_all())
+
+        # print("Stopping main_loop...")
+        # current_loop.close()
+        # print("main_loop has stopped!")
+
+
