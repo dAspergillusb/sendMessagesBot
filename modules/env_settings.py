@@ -8,5 +8,5 @@ class EnvSettings:
     API_ID: int
     API_HASH: str
     WHO_SEND: list[str | int]
-    TIME_TO_WAIT: int
+    TIME_TO_WAIT: list[int]
     TIME_TO_WAIT_BETWEEN_SEND: int
