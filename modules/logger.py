@@ -32,4 +32,6 @@ class Logger:
             stream_handler.setFormatter(log_format)
             logger.addHandler(stream_handler)
 
-
+    @staticmethod
+    def stop() -> None:
+        logging.shutdown()
