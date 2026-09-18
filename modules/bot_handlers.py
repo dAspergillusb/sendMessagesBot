@@ -59,9 +59,17 @@ async def help_bot(message: types.Message) -> None:
 async def get_my_messages(message: types.Message) -> None:
     chat_id: int = message.chat.id
     messages: list[Messages] = await MessagesDB().get_messages(tg_id=env_settings.MY_PERSONAL_ID)
+    if messages:
+        for message in messages:
+            await async_bot.send_message(
+                chat_id=chat_id,
+                text=str(message)
+            )
+            await sleep(2)
+        return
     await async_bot.send_message(
         chat_id=chat_id,
-        text=str(messages) if messages else "No messages found."
+        text="No messages found."
     )
 
 
@@ -149,7 +157,7 @@ async def add_new_message(message: types.Message) -> None:
 
 @async_bot.message_handler(state=RegisterNewMessage.message)
 async def register_new_message(message: types.Message) -> None:
-    async with async_bot.retrieve_data(user_id=message.from_user.id, chat_id=message.chat.id) as data:
+    async with async_bot.retrieve_data(user_id=message.from_user.id, chat_id=message.chat.id) as data: # type: ignore
         data["message"] = message.text
 
     await async_bot.set_state(
@@ -157,7 +165,7 @@ async def register_new_message(message: types.Message) -> None:
         state=RegisterNewMessage.chat_choosing,
         chat_id=message.chat.id,
     )
-    async with async_bot.retrieve_data(user_id=message.from_user.id, chat_id=message.chat.id) as data:
+    async with async_bot.retrieve_data(user_id=message.from_user.id, chat_id=message.chat.id) as data: # type: ignore
         data["chats"] = []
 
     await async_bot.send_message(
@@ -170,18 +178,23 @@ async def register_new_message(message: types.Message) -> None:
     )
 
 
-@async_bot.message_handler(state=RegisterNewMessage.chat_choosing, content_types=["chat_shared"])
+@async_bot.message_handler(state=RegisterNewMessage.chat_choosing, content_types=["chat_shared", "text"])
 async def handle_chat_shared(message: types.Message) -> None:
+    if message.text == "Cancel":
+        await async_bot.send_message(
+            chat_id=message.chat.id,
+            text="Ok! If you want to create new message, just input /add_new_message command."
+        )
+        await async_bot.delete_state(
+            user_id=message.from_user.id,
+            chat_id=message.chat.id
+        )
+        return
+
     chat_id: int = message.chat_shared.chat_id
 
-    async with async_bot.retrieve_data(user_id=message.from_user.id, chat_id=message.chat.id) as data:
+    async with async_bot.retrieve_data(user_id=message.from_user.id, chat_id=message.chat.id) as data: # type: ignore
         data["chat_id"] = chat_id
-        # if chat_id not in data["chats"]:
-        #     data["chats"].append(chat_id)
-        #     chats_count = len(data["chats"])
-        #     text = f"Chat with {chat_id} successfully added. Total chats: {chats_count}"
-        # else:
-        #     text = f"This chat already in list"
 
     await async_bot.set_state(
         user_id=message.from_user.id,
@@ -214,7 +227,7 @@ async def handle_chat_waiting_topic_id(message: types.Message) -> None:
         )
         return
 
-    async with async_bot.retrieve_data(user_id=message.from_user.id, chat_id=message.chat.id) as data:
+    async with async_bot.retrieve_data(user_id=message.from_user.id, chat_id=message.chat.id) as data: # type: ignore
         chat_data = f"{data["chat_id"]}/{topic_id}"
         if chat_data not in data["chats"]:
             data["chats"].append(chat_data)
@@ -254,9 +267,14 @@ async def handle_chat_action(message: types.Message) -> None:
 @async_bot.message_handler(state=RegisterNewMessage.time_pause)
 async def register_chats(message: types.Message) -> None:
     time_pause = message.text
-    if time_pause and time_pause.isdigit():
-        time_pause = int(time_pause)
-        async with async_bot.retrieve_data(user_id=message.from_user.id, chat_id=message.chat.id) as data:
+    if time_pause and all((
+        ":" in time_pause,
+        "," in time_pause,
+        time_pause.translate(str.maketrans({":": "", ",": ""})).isdigit(),
+        time_pause.split(",")[0] and time_pause.split(",")[1] != "0"
+    )):
+        time_pause = time_pause
+        async with async_bot.retrieve_data(user_id=message.from_user.id, chat_id=message.chat.id) as data: # type: ignore
             new_message: dict[str, int | str] = {
                 "tg_id": message.from_user.id,
                 "message": data["message"],
@@ -264,13 +282,21 @@ async def register_chats(message: types.Message) -> None:
                 "time_pause": time_pause
             }
             await MessagesDB().add_message(new_message)
-    await async_bot.delete_state(
-        user_id=message.from_user.id,
-        chat_id=message.chat.id
-    )
+        await async_bot.delete_state(
+            user_id=message.from_user.id,
+            chat_id=message.chat.id
+        )
+        await async_bot.send_message(
+            chat_id=message.chat.id,
+            text="New message added successfully. This message will be sent in the next iteration."
+        )
+        return
     await async_bot.send_message(
         chat_id=message.chat.id,
-        text="New message added successfully. This message will be sent in the next iteration."
+        text=(
+            "You should send the right message!\n"
+            "For example '12:00,7'"
+        )
     )
 
 
@@ -304,7 +330,7 @@ async def add_another_chat(message: types.Message) -> None:
 
 
 async def stop_chat_adding(message: types.Message) -> None:
-    async with async_bot.retrieve_data(user_id=message.from_user.id, chat_id=message.chat.id) as data:
+    async with async_bot.retrieve_data(user_id=message.from_user.id, chat_id=message.chat.id) as data: # type: ignore
         final_chat_list: list[int | str] = data.get("chats", [])
 
     if not final_chat_list:
@@ -332,7 +358,10 @@ async def stop_chat_adding(message: types.Message) -> None:
     await sleep(1)
     await async_bot.send_message(
         chat_id=message.chat.id,
-        text="Input the time pause via sending message to all chats (in seconds)."
+        text=(
+            "Input the time when message should be sent and period of pause between sending.\n"
+            "Type this like '12:00,7' (at 12PM over every 7 days)."
+        )
     )
 
 
@@ -351,11 +380,15 @@ async def send_critical_alert(alert: str) -> None:
 
 def get_chat_request_keyboard():
     markup = types.ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
-    button = types.KeyboardButton(
+    choose = types.KeyboardButton(
         text="Choose",
         request_chat=types.KeyboardButtonRequestChat(request_id=100, chat_is_channel=False)
     )
-    markup.add(button)
+    cancel = types.KeyboardButton(
+        text="Cancel"
+    )
+    markup.add(choose)
+    markup.add(cancel)
     return markup
 
 
