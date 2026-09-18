@@ -1,6 +1,7 @@
 import logging
 from os import makedirs
 from sys import stdout
+from datetime import datetime
 
 
 class Logger:
@@ -33,5 +34,13 @@ class Logger:
             logger.addHandler(stream_handler)
 
     @staticmethod
+    def create_log_info(msg: str) -> None:
+        logging.log(
+            level=logging.INFO,
+            msg=msg
+        )
+
+    @staticmethod
     def stop() -> None:
         logging.shutdown()
+
