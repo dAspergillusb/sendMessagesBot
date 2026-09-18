@@ -29,7 +29,8 @@ class Messages(Base):
     tg_id: Mapped[int] = mapped_column(Integer, nullable=False)
     message: Mapped[str] = mapped_column(String, nullable=False)
     chats: Mapped[str] = mapped_column(String, nullable=False)
-    time_pause: Mapped[int] = mapped_column(Integer, nullable=False)
+    time_pause: Mapped[str] = mapped_column(Integer, nullable=False)
+    sent_time: Mapped[int] = mapped_column(Integer, nullable=True)
 
     def __str__(self) -> str:
         return (
@@ -39,6 +40,7 @@ class Messages(Base):
             f"message: {self.message},\n"
             f"chats: {self.chats},\n"
             f"time_pause: {self.time_pause},\n"
+            f"sent_time: {self.sent_time},\n"
             ")"
         )
 
@@ -50,6 +52,7 @@ class Messages(Base):
             f"message: {self.message},\n"
             f"chats: {self.chats},\n"
             f"time_pause: {self.time_pause},\n"
+            f"sent_time: {self.sent_time},\n"
             ")"
         )
 
