@@ -8,6 +8,9 @@ from asyncio import (
     CancelledError
 )
 from modules import Logger, MessagesDB, Messages
+from datetime import datetime
+from time import time
+from random import randint
 
 logger: Logger = Logger(
     to_file=True,
@@ -30,23 +33,52 @@ from modules import (
 
 
 MAXIMUM_LENGTH: int = 4096 # Maximum message length for telegram
+SLEEP_BETWEEN: list[int] = [5, 30] # sleep between some actions
+ONE_DAY_IN_SECONDS: int = 86400 # Seconds count for one day
 
 
 async def run_user_bot() -> None:
     print("Running user bot...")
     try:
         while True:
+            logger.create_log_info(
+                msg="UserBot starting new session..."
+            )
             messages: list[Messages] = await MessagesDB().get_messages(tg_id=env_settings.MY_PERSONAL_ID)
             if not messages:
-                await sleep(240)
+                await sleep(randint(*SLEEP_BETWEEN))
             else:
                 for message_data in messages:
-                    await user_bot.main_sending(
-                        message=message_data.message,
-                        chats=message_data.get_chats_list()
-                    )
-                    await sleep(240) # Sleep 4 minutes between message group
-                await sleep(env_settings.TIME_TO_WAIT_BETWEEN_SEND)
+                    _time, pause = message_data.time_pause.split(",")
+                    period: int | float = ((time() - message_data.sent_time) // ONE_DAY_IN_SECONDS) if message_data.sent_time else int(pause)
+                    can_be_sent: bool = _time <= datetime.now().time().strftime("%H:%M")
+                    if can_be_sent and period >= int(pause):
+                        logger.create_log_info(
+                            msg=f"Sending message {message_data.message_id}...",
+                        )
+                        await user_bot.main_sending(
+                            message=message_data.message,
+                            chats=message_data.get_chats_list()
+                        )
+                        await MessagesDB().change_message(
+                            data_to_change={"sent_time": int(time())},
+                            message_id=message_data.message_id
+                        )
+                        await sleep(randint(*SLEEP_BETWEEN))
+                        logger.create_log_info(
+                            msg="Messages has sent successfully.",
+                        )
+                    else:
+                        logger.create_log_info(
+                            msg=f"The messages has not been sent: {period=} <= {pause=}; {can_be_sent=}"
+                        )
+                logger.create_log_info(
+                    msg="UserBot complete session."
+                )
+                logger.create_log_info(
+                    msg="Pause between sending..."
+                )
+                await sleep(randint(*SLEEP_BETWEEN))
     except ErrorOccurred as error:
         alert: str = (
             "There is a problem with your bot!\n"
