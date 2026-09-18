@@ -29,7 +29,9 @@ class SendMessage(Client):
         self.started_work_error: bool = False
 
     async def fast_check(self) -> bool:
-        return self.is_connected
+        if hasattr(self, "is_connected"):
+            return self.is_connected
+        return False
 
     async def deep_check(self) -> bool:
         check_connection: bool = True if await self.get_me() else False
